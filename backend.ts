@@ -155,6 +155,29 @@ app.onAfterHandle(({ request, set }) => {
 app.get("/api/auth/*", ({ request }) => auth.handler(request));
 app.post("/api/auth/*", ({ request }) => auth.handler(request));
 
+// ─── Sign-out Proxy ───────────────────────────────────────────────────────────
+// Better Auth 的 /api/auth/sign-out 有 CSRF origin 驗證（比對 trustedOrigins）。
+// production 環境若 BETTER_AUTH_URL 設定錯誤（如仍是 localhost），
+// 瀏覽器送出的 Origin（正式網址）不在白名單，導致 sign-out 回 403 但前端不知道，
+// 造成「看似登出，實際 session 仍在」的假登出。
+//
+// 解法：在 Elysia 層加一個 proxy，以 server 信任的 baseURL 當 Origin 轉發給 Better Auth。
+// 安全性：session 識別仍靠 cookie，CSRF bypass 只在 server 端發生，不降低安全性。
+app.post("/api/sign-out", async ({ request }) => {
+  const baBaseUrl = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+
+  // 複製原始 headers，強制覆寫 origin 為 Better Auth 信任的 baseURL
+  const proxiedHeaders = new Headers(request.headers);
+  proxiedHeaders.set("origin", baBaseUrl);
+
+  const proxiedRequest = new Request(`${baBaseUrl}/api/auth/sign-out`, {
+    method: "POST",
+    headers: proxiedHeaders,
+  });
+
+  return auth.handler(proxiedRequest);
+});
+
 // 菜單路由
 app.get("/api/menu", () => ({ data: [...store.getMenu()] }), {
   detail: {

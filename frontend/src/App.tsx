@@ -290,14 +290,21 @@ export default function App() {
   }
 
   async function handleLogout(): Promise<void> {
-    // 通知 server 清除 session cookie
+    // 使用 /api/sign-out（server-side proxy），避免 Better Auth CSRF 驗證
+    // 因 BETTER_AUTH_URL 設定錯誤造成的假登出（403 被吃掉）。
+    // 若登出失敗，顯示錯誤並中止，確保使用者知道 session 仍存在。
     try {
-      await fetch(buildApiUrl("/api/auth/sign-out"), {
+      const res = await fetch(buildApiUrl("/api/sign-out"), {
         method: "POST",
         credentials: "include",
       });
+      if (!res.ok) {
+        setActionError(`登出失敗（HTTP ${res.status}），請重試或手動清除瀏覽器 Cookie。`);
+        return;
+      }
     } catch {
-      // sign-out 失敗時仍清除前端狀態
+      setActionError("登出時發生網路錯誤，請重試。");
+      return;
     }
     setUser(null);
     setAuthError("");
