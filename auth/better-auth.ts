@@ -17,6 +17,13 @@ if (!secret || secret === "replaceme") {
 
 const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 
+// trustedOrigins：CSRF 白名單。預設信任 baseURL。
+// API_ALLOWED_ORIGIN 設定時（如 Vite dev server http://localhost:5173）一併加入，
+// 讓跨 port 開發場景的 sign-out 不會被 CSRF 保護擋住。
+const extraOrigin = process.env.API_ALLOWED_ORIGIN;
+const trustedOrigins =
+  extraOrigin && extraOrigin !== "*" ? [baseURL, extraOrigin] : [baseURL];
+
 // ─── Better Auth instance ─────────────────────────────────────────────────────
 // V9 第一階段：只啟用 email/password，Google OAuth 放第二階段。
 // auth tables（user / session / account / verification）存在 bf_v9 schema 下，
@@ -24,6 +31,7 @@ const baseURL = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
 export const auth = betterAuth({
   baseURL,
   secret,
+  trustedOrigins,
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,

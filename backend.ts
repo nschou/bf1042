@@ -102,7 +102,20 @@ app.onRequest(({ request }) => {
 
 app.options(
   "*",
-  ({ set }) => {
+  ({ request, set }) => {
+    const requestOrigin = request.headers.get("origin");
+    // Preflight 需要直接在 OPTIONS handler 設 CORS 頭，
+    // 因為 onAfterHandle 不保證在 OPTIONS 204 前執行。
+    if (allowedOrigin === "*") {
+      set.headers["access-control-allow-origin"] = requestOrigin || "*";
+    } else if (requestOrigin === allowedOrigin) {
+      set.headers["access-control-allow-origin"] = allowedOrigin;
+      set.headers["access-control-allow-credentials"] = "true";
+    }
+    set.headers["access-control-allow-methods"] =
+      "GET,POST,PATCH,DELETE,OPTIONS";
+    set.headers["access-control-allow-headers"] = "Content-Type, Authorization";
+    set.headers.vary = "Origin";
     set.status = 204;
     return "";
   },
@@ -118,8 +131,11 @@ app.onAfterHandle(({ request, set }) => {
 
   if (allowedOrigin === "*") {
     set.headers["access-control-allow-origin"] = requestOrigin || "*";
+    // allowedOrigin=* 時不能同時設 credentials（瀏覽器規範禁止）
   } else if (requestOrigin === allowedOrigin) {
     set.headers["access-control-allow-origin"] = allowedOrigin;
+    // 明確 origin 才能允許 credentials（session cookie 所需）
+    set.headers["access-control-allow-credentials"] = "true";
   } else {
     return;
   }
