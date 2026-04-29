@@ -52,6 +52,7 @@ export default function App() {
     setOrderId(null);
     setCartQtyByItemId({});
     setCartTotal(0);
+    setIsCartOpen(false);
   }
 
   async function loadCurrentOrder(): Promise<Order | null> {
@@ -155,6 +156,7 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setHistoryOrders([]);
+      setIsCartOpen(false);
       resetCartState();
       return;
     }
@@ -299,7 +301,9 @@ export default function App() {
         credentials: "include",
       });
       if (!res.ok) {
-        setActionError(`登出失敗（HTTP ${res.status}），請重試或手動清除瀏覽器 Cookie。`);
+        setActionError(
+          `登出失敗（HTTP ${res.status}），請重試或手動清除瀏覽器 Cookie。`,
+        );
         return;
       }
     } catch {
@@ -700,7 +704,7 @@ export default function App() {
         ) : null}
       </main>
 
-      {isCartOpen ? (
+      {user && isCartOpen ? (
         <>
           <button
             className="fixed inset-0 bg-black/35"
