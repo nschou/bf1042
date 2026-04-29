@@ -15,6 +15,13 @@
       "when": 1777458246949,
       "tag": "0001_luxuriant_toad",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777478305777,
+      "tag": "0002_unique_outlaw_kid",
+      "breakpoints": true
     }
   ]
 }

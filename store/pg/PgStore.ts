@@ -5,7 +5,6 @@ import {
   menuItemsTable,
   orderItemsTable,
   ordersTable,
-  usersTable,
 } from "../../db/schema.ts";
 import type { Store } from "../Store.ts";
 
@@ -14,15 +13,8 @@ interface PgStoreOptions {
 }
 
 // Seed 用的內部型別（來自 data/store.json）
-interface SeedUser {
-  id: string;
-  email: string;
-  name: string;
-  password: string;
-}
-
+// V9: 只播 menu，users 由 Better Auth 管理，orders 需真實 session 才能建立
 interface SeedData {
-  users?: SeedUser[];
   menu?: MenuItem[];
   orders?: Array<{
     id: number;
@@ -320,7 +312,7 @@ export class PgStore implements Store {
   private async seedFromJsonIfEmpty(): Promise<void> {
     const [countRow] = await db
       .select({ value: sql<number>`count(*)` })
-      .from(usersTable);
+      .from(menuItemsTable);
 
     if (Number(countRow?.value ?? 0) > 0) return;
 
@@ -328,20 +320,7 @@ export class PgStore implements Store {
     if (!(await file.exists())) return;
 
     const parsed = JSON.parse(await file.text()) as SeedData;
-    const users = Array.isArray(parsed.users) ? parsed.users : [];
     const menu = Array.isArray(parsed.menu) ? parsed.menu : [];
-    const orders = Array.isArray(parsed.orders) ? parsed.orders : [];
-
-    if (users.length > 0) {
-      await db.insert(usersTable).values(
-        users.map((u) => ({
-          id: u.id,
-          email: u.email,
-          name: u.name,
-          password: u.password,
-        })),
-      );
-    }
 
     if (menu.length > 0) {
       await db.insert(menuItemsTable).values(
@@ -356,47 +335,13 @@ export class PgStore implements Store {
       );
     }
 
-    for (const order of orders) {
-      await db.insert(ordersTable).values({
-        id: order.id,
-        userId: String(order.userId),
-        total: order.total,
-        status: order.status,
-        createdAt: new Date(order.createdAt),
-        submittedAt: order.submittedAt ? new Date(order.submittedAt) : null,
-      });
-
-      if (order.items.length > 0) {
-        await db.insert(orderItemsTable).values(
-          order.items.map((oi) => ({
-            orderId: order.id,
-            itemId: oi.item.id,
-            name: oi.item.name,
-            price: oi.item.price,
-            category: oi.item.category,
-            description: oi.item.description,
-            imageUrl: oi.item.image_url,
-            qty: oi.qty,
-          })),
-        );
-      }
-    }
+    // V9: 不再播 orders seed data（orders 的 user_id FK 指向 Better Auth user 表，
+    // seed JSON 中的舊 userId 在 bf_v9.user 不存在，強制播入會觸發 FK violation）
 
     const schema = process.env.PG_SCHEMA ?? "public";
-    // 只重置有 sequence 的表（users.id 是 text，無 sequence）
     await db.execute(
       sql.raw(
         `select setval('${schema}.menu_items_id_seq', coalesce((select max(id) from ${schema}.menu_items), 1), true)`,
-      ),
-    );
-    await db.execute(
-      sql.raw(
-        `select setval('${schema}.orders_id_seq', coalesce((select max(id) from ${schema}.orders), 1), true)`,
-      ),
-    );
-    await db.execute(
-      sql.raw(
-        `select setval('${schema}.order_items_id_seq', coalesce((select max(id) from ${schema}.order_items), 1), true)`,
       ),
     );
   }
