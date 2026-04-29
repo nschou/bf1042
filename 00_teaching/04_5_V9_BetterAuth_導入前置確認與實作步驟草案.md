@@ -1749,6 +1749,121 @@ http://localhost:3000/api/auth/callback/google   ← 本機開發
 5. 原有帳密登入仍正常
 6. 點 Google 按鈕 → 若 env 設好可跳到 Google 同意頁；若 env 未設則 Better Auth 應回錯誤
 
+---
+
+## Bug 記錄：登出偶發 HTTP 500（Neon Pool cold-start）
+
+> **發生時機**：`bun dev` 或 `bun run backend.ts` 剛重啟後，**第一個**需要查 DB 的操作（例如立刻按登出）。
+
+### 現象描述
+
+前端出現錯誤訊息：
+
+```
+登出失敗（HTTP 500），請重試或手動清除瀏覽器 Cookie。
+```
+
+重試一次就成功。
+
+### 為什麼會這樣？
+
+**Neon Serverless 的 Pool 是懶載入（lazy initialization）**。
+
+```
+bun run backend.ts 啟動
+↓
+Pool 物件建立，但尚未建立 WebSocket 連線
+↓
+使用者立刻點「登出」
+↓
+Better Auth sign-out handler 嘗試查 DB（刪除 session）
+↓
+Pool 第一次嘗試建立連線 → 若 Neon 有 cold-start 延遲 → DB 操作逾時或失敗
+↓
+Better Auth 回 500
+↓
+前端 handleLogout() 偵測到 !res.ok → 顯示錯誤（正確行為）
+```
+
+這是**基礎設施 cold-start 問題**，不是 code bug。
+
+### 為什麼前端會顯示 500 錯誤（而不是假登出）？
+
+這正是 Phase 7 加入 `res.ok` 判斷的成效：
+
+```ts
+// App.tsx handleLogout()
+if (!res.ok) {
+  setActionError(`登出失敗（HTTP ${res.status}），請重試或手動清除瀏覽器 Cookie。`);
+  return;  // ← 中止，user 狀態不清除，不假裝登出成功
+}
+```
+
+**舊版行為**（修正前）：500 時 fetch 不 throw，UI 直接清除 user state，但 session cookie 仍存在 → 假登出。  
+**新版行為**（修正後）：500 時明確告知使用者，保持登入狀態，讓使用者決定是否重試。
+
+### 如何重現
+
+```bash
+# 1. 重啟 server
+bun run backend.ts
+
+# 2. 在 server 剛啟動後立刻（< 1 秒內）呼叫登出
+curl -s -X POST http://localhost:3000/api/sign-out -H "Content-Type: application/json"
+```
+
+實際測試（等 Pool 熱機後）：
+
+```bash
+# login → sign-out 完整循環
+COOKIE_JAR=$(mktemp)
+curl -s -c "$COOKIE_JAR" -X POST http://localhost:3000/api/auth/sign-in/email \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test2@example.com","password":"Test1234!"}' -w " HTTP:%{http_code}\n"
+# → {"redirect":false,"token":"...","user":{...}} HTTP:200
+
+curl -s -b "$COOKIE_JAR" -X POST http://localhost:3000/api/sign-out \
+  -H "Content-Type: application/json" -w " HTTP:%{http_code}\n"
+# → {"success":true} HTTP:200
+
+rm "$COOKIE_JAR"
+```
+
+結果：正常情況下 sign-out 穩定回 `200 {"success":true}`。
+
+### 已加入的 server-side error logging（`backend.ts`）
+
+為了讓下次發生 500 時能追蹤真正原因，在 sign-out proxy 補入 log：
+
+```ts
+// backend.ts - /api/sign-out proxy
+const res = await auth.handler(proxiedRequest);
+if (!res.ok) {
+  const body = await res.clone().text().catch(() => "(unreadable)");
+  console.error(`[sign-out proxy] Better Auth returned ${res.status}:`, body);
+}
+return res;
+```
+
+現在若再次發生 500，server terminal 會顯示 Better Auth 的原始錯誤訊息，可立即判斷是：
+- DB 連線問題（`ECONNREFUSED` / `timeout`）
+- Session schema 問題（`column not found`）
+- 其他 Better Auth 內部錯誤
+
+### 解法對照
+
+| 方案 | 說明 | 本專案採用？ |
+|---|---|---|
+| 什麼都不做 | 重試就好，cold-start 是正常現象 | ✅ 可接受 |
+| 健康檢查路由 | `/health` 已存在，啟動後先 ping 一次讓 Pool 熱機 | 可選 |
+| Pool 預熱 | 啟動時主動執行一次 `db.execute(sql\`SELECT 1\`)` | 過度工程 |
+| 改用 HTTP adapter | Neon HTTP adapter 無 WebSocket cold-start 問題，但有其他 trade-off | 進階選項 |
+
+**結論**：cold-start 偶發 500 + 前端正確顯示錯誤 + 使用者重試成功 = 可接受的行為。  
+server-side log 已加入，往後若頻率升高才需要進一步處理。
+
+---
+
 ### 下一步預告（後續子階段）
 
 | 子階段              | 內容                                   |
