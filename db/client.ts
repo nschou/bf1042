@@ -1,6 +1,7 @@
 import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import * as schema from "./schema.ts";
+import * as authSchema from "./auth-schema.ts";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -12,4 +13,7 @@ if (!databaseUrl) {
 
 const pool = new Pool({ connectionString: databaseUrl });
 
-export const db = drizzle({ client: pool, schema });
+export const db = drizzle({
+  client: pool,
+  schema: { ...schema, ...authSchema },
+});
