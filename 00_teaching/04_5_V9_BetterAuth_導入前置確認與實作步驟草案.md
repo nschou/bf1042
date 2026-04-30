@@ -2074,6 +2074,33 @@ curl -s http://localhost:3000/api/auth/get-providers 2>/dev/null || echo "（此
 
 #### 可能的錯誤與排查
 
+```mermaid
+flowchart TD
+  S[Google 登入失敗] --> Q1{看到哪種錯誤?}
+
+  Q1 -->|redirect_uri_mismatch| R1[檢查 Google Console\nAuthorized redirect URI]
+  R1 --> R1A[必須是 http://localhost:3000/api/auth/callback/google\n不是 5173 也不是其他路徑]
+
+  Q1 -->|access_blocked| R2[檢查 OAuth 同意畫面設定]
+  R2 --> R2A[確認應用類型為 External\n並完成儲存流程]
+
+  Q1 -->|Error 403 access_denied| R3[檢查測試使用者名單]
+  R3 --> R3A[把測試 Gmail 加入 OAuth consent screen 的 Test users]
+
+  Q1 -->|按按鈕無反應/停在原頁| R4[檢查 env guard]
+  R4 --> R4A[確認 .env 內 GOOGLE_CLIENT_ID 與 GOOGLE_CLIENT_SECRET 都有值]
+  R4A --> R4B[重啟 server 再測]
+
+  Q1 -->|網路錯誤/fetch failed| R5[檢查後端服務狀態]
+  R5 --> R5A[執行 bun run backend.ts]
+
+  R1A --> OK[重新測試 Google 登入]
+  R2A --> OK
+  R3A --> OK
+  R4B --> OK
+  R5A --> OK
+```
+
 | 錯誤訊息                                        | 原因                                                                               | 解法                                                                              |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | `redirect_uri_mismatch`                         | Google Console 的 redirect URI 與後端實際 callback URL 不符                        | 確認 Console 填的是 `http://localhost:3000/api/auth/callback/google`（不是 5173） |
