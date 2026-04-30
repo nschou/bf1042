@@ -1581,9 +1581,14 @@ async function handleGoogleSignIn(): Promise<void> {
   setIsGoogleSigningIn(true);
   try {
     const callbackURL = window.location.origin;
-    window.location.href = buildApiUrl(
-      `/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(callbackURL)}`,
-    );
+    const res = await fetch(buildApiUrl("/api/auth/sign-in/social"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ provider: "google", callbackURL }),
+    });
+    const payload = await res.json();
+    window.location.href = payload.url;
   } catch {
     setAuthError("Google 登入啟動失敗，請稍後再試。");
     setIsGoogleSigningIn(false);
@@ -1700,11 +1705,11 @@ const isGoogleProviderConfigured = Boolean(googleClientId && googleClientSecret)
 
 新增三項：
 
-| 項目                      | 說明                                                               |
-| ------------------------- | ------------------------------------------------------------------ |
-| `isGoogleSigningIn` state | 控制按鈕 loading 狀態與防重複點擊                                  |
-| `handleGoogleSignIn()`    | 組出 redirect URL，導向 `/api/auth/sign-in/social?provider=google` |
-| Google 按鈕               | 放在帳密按鈕下方，`<div className="divider">` 視覺分隔             |
+| 項目                      | 說明                                                                  |
+| ------------------------- | --------------------------------------------------------------------- |
+| `isGoogleSigningIn` state | 控制按鈕 loading 狀態與防重複點擊                                     |
+| `handleGoogleSignIn()`    | 先 `POST /api/auth/sign-in/social`，再依回傳 `url` 導向 Google 同意頁 |
+| Google 按鈕               | 放在帳密按鈕下方，`<div className="divider">` 視覺分隔                |
 
 防重複點擊設計：兩個按鈕互鎖—帳密登入進行中時 Google 按鈕也 disabled，反之亦然。
 
@@ -1714,9 +1719,14 @@ async function handleGoogleSignIn(): Promise<void> {
   setIsGoogleSigningIn(true);
   try {
     const callbackURL = window.location.origin;
-    window.location.href = buildApiUrl(
-      `/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(callbackURL)}`,
-    );
+    const res = await fetch(buildApiUrl("/api/auth/sign-in/social"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ provider: "google", callbackURL }),
+    });
+    const payload = await res.json();
+    window.location.href = payload.url;
   } catch {
     setAuthError("Google 登入啟動失敗，請稍後再試。");
     setIsGoogleSigningIn(false);
@@ -1726,9 +1736,10 @@ async function handleGoogleSignIn(): Promise<void> {
 
 #### 3. 設計決策說明
 
-**為什麼用 `window.location.href` 而不是 fetch？**  
-Google OAuth 流程是 redirect-based：Better Auth 回 `302 redirect → Google 同意頁 → callback`。  
-fetch 會在 redirect 時受 CORS 限制，且無法讓瀏覽器跟著跳轉。用 `window.location.href` 直接改變頁面 URL，才能正確觸發 OAuth 流程。
+**為什麼要先 fetch，再 `window.location.href`？**  
+這版 Better Auth 的 social sign-in 入口採用 POST。  
+前端先呼叫 `POST /api/auth/sign-in/social` 取得回傳的 `url`，再用 `window.location.href = url` 導向 Google 同意頁。  
+若直接用 GET query-string 呼叫 social 入口，會遇到 `404`。
 
 **callbackURL 的作用？**  
 OAuth 完成後 Better Auth 把使用者重導回這個 URL。這裡傳 `window.location.origin`（如 `https://xxxx.onrender.com`），代表「完成後回站台首頁」。
@@ -1899,8 +1910,9 @@ sequenceDiagram
     participant DB as Neon DB
 
     U->>FE: 點「使用 Google 登入」
-    FE->>BE: GET /api/auth/sign-in/social?provider=google&callbackURL=...
-    BE->>G: 302 Redirect (OAuth 授權請求)
+    FE->>BE: POST /api/auth/sign-in/social { provider, callbackURL }
+    BE-->>FE: 200 { url }
+    FE->>G: window.location.href = url
     U->>G: 同意授權 / 選擇帳號
     G->>BE: GET /api/auth/callback/google?code=...
     BE->>G: 用 code 換 token
