@@ -25,6 +25,12 @@ const extraOrigin = process.env.API_ALLOWED_ORIGIN;
 const trustedOrigins =
   extraOrigin && extraOrigin !== "*" ? [baseURL, extraOrigin] : [baseURL];
 
+const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET?.trim();
+const isGoogleProviderConfigured = Boolean(
+  googleClientId && googleClientSecret,
+);
+
 // ─── Better Auth instance ─────────────────────────────────────────────────────
 // V9 第一階段：只啟用 email/password，Google OAuth 放第二階段。
 // auth tables（user / session / account / verification）存在 bf_v9 schema 下，
@@ -40,6 +46,16 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  ...(isGoogleProviderConfigured
+    ? {
+        socialProviders: {
+          google: {
+            clientId: googleClientId!,
+            clientSecret: googleClientSecret!,
+          },
+        },
+      }
+    : {}),
 });
 
 // ─── Session helper ───────────────────────────────────────────────────────────

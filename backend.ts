@@ -168,7 +168,15 @@ app.post("/api/sign-out", async ({ request }) => {
     headers: proxiedHeaders,
   });
 
-  return auth.handler(proxiedRequest);
+  const res = await auth.handler(proxiedRequest);
+  if (!res.ok) {
+    const body = await res
+      .clone()
+      .text()
+      .catch(() => "(unreadable)");
+    console.error(`[sign-out proxy] Better Auth returned ${res.status}:`, body);
+  }
+  return res;
 });
 
 // 菜單路由

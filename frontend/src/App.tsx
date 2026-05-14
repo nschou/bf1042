@@ -19,6 +19,7 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState("Test1234!");
   const [authError, setAuthError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isGoogleSigningIn, setIsGoogleSigningIn] = useState(false);
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -288,6 +289,22 @@ export default function App() {
       console.error(loginError);
     } finally {
       setIsLoggingIn(false);
+    }
+  }
+
+  async function handleGoogleSignIn(): Promise<void> {
+    setAuthError("");
+    setIsGoogleSigningIn(true);
+    try {
+      // Better Auth 的 social sign-in 入口：導向後端發起 Google OAuth 流程
+      // callbackURL 決定 OAuth 完成後要回跳的網址（必須是已登記的 redirect URI）
+      const callbackURL = window.location.origin;
+      window.location.href = buildApiUrl(
+        `/api/auth/sign-in/social?provider=google&callbackURL=${encodeURIComponent(callbackURL)}`,
+      );
+    } catch {
+      setAuthError("Google 登入啟動失敗，請稍後再試。");
+      setIsGoogleSigningIn(false);
     }
   }
 
@@ -587,9 +604,21 @@ export default function App() {
                 onClick={() => {
                   void handleLogin();
                 }}
-                disabled={isLoggingIn}
+                disabled={isLoggingIn || isGoogleSigningIn}
               >
                 {isLoggingIn ? "登入中..." : "登入"}
+              </button>
+
+              <div className="divider text-xs opacity-50">或</div>
+
+              <button
+                className="btn btn-outline w-full"
+                onClick={() => {
+                  void handleGoogleSignIn();
+                }}
+                disabled={isGoogleSigningIn || isLoggingIn}
+              >
+                {isGoogleSigningIn ? "導向 Google 中..." : "使用 Google 登入"}
               </button>
             </div>
           </section>
