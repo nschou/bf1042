@@ -12,6 +12,9 @@
     {
       "path": "../00_demo01-v8-clean-drizzle-neon-v2",
     },
+    {
+      "path": "../00_demo01-v9-clean-better-auth-v3",
+    },
   ],
   "settings": {
     "chat.tools.terminal.autoApprove": {
