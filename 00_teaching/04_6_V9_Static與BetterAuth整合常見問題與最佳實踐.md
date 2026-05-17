@@ -412,16 +412,119 @@ Elysia 路由匹配順序（由高到低）：
 
 ---
 
+## V3 實作經驗：靜態檔案處理的最佳解
+
+### 發現的問題
+
+在實作 v9-clean-better-auth-v3 時，發現 `@elysiajs/static` plugin 存在路由優先級問題：
+
+1. **即使使用 `ignorePatterns`，API 路由仍可能被攔截**
+   - 測試發現：`/health` 路由返回 HTML 而非 JSON
+   - 原因：`staticPlugin` 的內部實作可能在打包後行為不一致
+
+2. **端口衝突導致測試失敗**
+   - 症狀：即使修改代碼，測試結果仍然錯誤
+   - 原因：其他 Bun 進程佔用了 port 3000
+   - 檢查方式：`lsof -i :3000` 或 `netstat -tlnp | grep 3000`
+
+3. **Drizzle pgSchema 不能使用 "public"**
+   - 錯誤：`You can't specify 'public' as schema name`
+   - 原因：Postgres 的 `public` schema 應該直接用 `pgTable()`，不需要 `pgSchema()`
+   - 解決：預設值改為 `"bf_v9"`，並檢查禁止使用 `"public"`
+
+### 最終解決方案
+
+**完全移除 staticPlugin，改用手動 wildcard 路由**：
+
+```ts
+// ❌ 移除：不再使用 staticPlugin
+// import { staticPlugin } from "@elysiajs/static";
+// app.use(staticPlugin({ ... }));
+
+// ✅ 採用：完全手動控制路由優先級
+if (hasPublicAssets) {
+  app.get("*", async ({ request }) => {
+    const pathname = new URL(request.url).pathname;
+
+    // API 路徑返回 404
+    if (pathname.startsWith("/api/") || pathname.startsWith("/openapi")) {
+      return new Response(JSON.stringify({ error: "Not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    // 嘗試回傳對應的靜態檔案
+    const staticFile = Bun.file(`./public${pathname}`);
+    if (pathname !== "/" && (await staticFile.exists())) {
+      return staticFile;
+    }
+
+    // SPA fallback: 回傳 index.html
+    return Bun.file("./public/index.html");
+  });
+}
+```
+
+**修正 pgSchema 預設值**：
+
+```ts
+// db/schema.ts 和 db/auth-schema.ts
+const schemaName = process.env.PG_SCHEMA || "bf_v9";
+if (schemaName === "public") {
+  throw new Error(
+    'PG_SCHEMA cannot be "public". Use a custom schema name or leave it unset to use the default "bf_v9".',
+  );
+}
+const appSchema = pgSchema(schemaName);
+```
+
+### 優點
+
+1. **路由優先級完全可控**
+   - 明確的 API 路由（如 `/health`）優先於 wildcard
+   - 沒有 plugin 黑盒行為造成的意外
+
+2. **打包後行為一致**
+   - 開發模式和打包模式表現相同
+   - 沒有環境差異造成的困惑
+
+3. **代碼簡潔易懂**
+   - 20 行代碼取代 plugin 配置
+   - 邏輯集中，易於調試和維護
+
+### 測試驗證
+
+```bash
+# 開發模式
+bun backend.ts
+
+# 測試 API
+curl http://localhost:3000/health       # → {"status":"ok"}
+curl http://localhost:3000/api/menu     # → {"data":[...]}
+
+# 測試 SPA
+curl http://localhost:3000/             # → <!doctype html>...
+
+# 打包模式
+bun run build:backend
+bun dist/backend.js
+# 再次測試，行為一致
+```
+
+---
+
 ## 參考資源
 
 - [Elysia Static Plugin 官方文件](https://elysiajs.com/plugins/static)
 - [Elysia Fullstack Dev Server 範例](https://elysiajs.com/patterns/fullstack-dev-server)
 - [Better Auth Elysia 整合指南](https://www.better-auth.com/docs/integrations/elysia)
 - [Better Auth CSRF Protection](https://www.better-auth.com/docs/concepts/security)
+- [Drizzle pgSchema 文件](https://orm.drizzle.team/docs/schemas)
 
 ---
 
 ## 版本歷程
 
 - **v9-clean-better-auth-v2**：初始 Better Auth 整合（含架構問題）
-- **v9-clean-better-auth-v3**：修正靜態檔案處理、CORS、session 注入邏輯
+- **v9-clean-better-auth-v3**：修正靜態檔案處理、CORS、session 注入邏輯，移除 staticPlugin 改用手動路由
