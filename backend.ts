@@ -1,6 +1,7 @@
 import { Elysia } from "elysia";
 import { openapi } from "@elysiajs/openapi";
 import { staticPlugin } from "@elysiajs/static";
+import { cors } from "@elysia/cors";
 import { existsSync } from "node:fs";
 import toTaipeiDateTime from "./util.ts";
 import {
@@ -32,17 +33,61 @@ const store = createStore({ dataFilePath: "./data/store.json" });
 const hasPublicAssets =
   existsSync("./public") && existsSync("./public/index.html");
 
+// ─── Better Auth Plugin ──────────────────────────────────────────────────────
+// 使用 mount 統一掛載 Better Auth handler
+const betterAuthPlugin = new Elysia({ name: "better-auth" }).mount(
+  "/api/auth",
+  auth.handler,
+);
+
+// ─── Auth Helper ──────────────────────────────────────────────────────────────
+// 簡化的 helper 函數，用於保護路由並獲取 user，失敗時拋出 401 錯誤
+async function requireUser(request: Request) {
+  const user = await getCurrentUser(request);
+  if (!user) {
+    throw new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  return user;
+}
+
 const app = new Elysia();
 
+// ─── CORS Plugin ──────────────────────────────────────────────────────────────
+app.use(
+  cors({
+    origin:
+      allowedOrigin === "*"
+        ? "*"
+        : allowedOrigin || "http://localhost:5173",
+    credentials: allowedOrigin !== "*",
+    methods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  }),
+);
+
+// ─── Static Plugin ────────────────────────────────────────────────────────────
 if (hasPublicAssets) {
   app.use(
     staticPlugin({
       assets: "public",
-      prefix: "",
+      prefix: "/", // 明確設為根路徑
+      indexHTML: true, // 自動 SPA fallback
+      staticLimit: 1024, // 控制效能門檻（KB）
+      ignorePatterns: [
+        /^\/api\//, // 排除所有 API 路徑
+        /^\/openapi/, // 排除 OpenAPI 文件
+      ],
     }),
   );
 }
 
+// ─── Better Auth Plugin ──────────────────────────────────────────────────────
+app.use(betterAuthPlugin);
+
+// ─── OpenAPI Plugin ───────────────────────────────────────────────────────────
 app.use(
   openapi({
     path: "/openapi",
@@ -50,9 +95,9 @@ app.use(
     documentation: {
       info: {
         title: "Breakfast Demo API",
-        version: "0.2.2",
+        version: "0.2.3",
         description:
-          "Breakfast ordering demo API for teaching route schema, contract-first design, and future database/auth upgrades.",
+          "Breakfast ordering demo API for teaching route schema, contract-first design, and future database/auth upgrades. V9-clean-better-auth-v3: optimized static handling, CORS plugin, and Better Auth macro integration.",
       },
       tags: [
         { name: "auth", description: "Authentication endpoints" },
@@ -69,66 +114,14 @@ app.use(
 );
 
 // 請求記錄中間件
+// ─── Request Logger ───────────────────────────────────────────────────────────
 app.onRequest(({ request }) => {
   console.log(
     `[${toTaipeiDateTime(new Date().toISOString())}] ${request.method} ${new URL(request.url).pathname}`,
   );
 });
 
-app.options(
-  "*",
-  ({ request, set }) => {
-    const requestOrigin = request.headers.get("origin");
-    // Preflight 需要直接在 OPTIONS handler 設 CORS 頭，
-    // 因為 onAfterHandle 不保證在 OPTIONS 204 前執行。
-    if (allowedOrigin === "*") {
-      set.headers["access-control-allow-origin"] = requestOrigin || "*";
-    } else if (requestOrigin === allowedOrigin) {
-      set.headers["access-control-allow-origin"] = allowedOrigin;
-      set.headers["access-control-allow-credentials"] = "true";
-    }
-    set.headers["access-control-allow-methods"] =
-      "GET,POST,PATCH,DELETE,OPTIONS";
-    set.headers["access-control-allow-headers"] = "Content-Type, Authorization";
-    set.headers.vary = "Origin";
-    set.status = 204;
-    return "";
-  },
-  {
-    detail: {
-      hide: true,
-    },
-  },
-);
-
-app.onAfterHandle(({ request, set }) => {
-  const requestOrigin = request.headers.get("origin");
-
-  if (allowedOrigin === "*") {
-    set.headers["access-control-allow-origin"] = requestOrigin || "*";
-    // allowedOrigin=* 時不能同時設 credentials（瀏覽器規範禁止）
-  } else if (requestOrigin === allowedOrigin) {
-    set.headers["access-control-allow-origin"] = allowedOrigin;
-    // 明確 origin 才能允許 credentials（session cookie 所需）
-    set.headers["access-control-allow-credentials"] = "true";
-  } else {
-    return;
-  }
-
-  set.headers.vary = "Origin";
-  set.headers["access-control-allow-methods"] = "GET,POST,PATCH,DELETE,OPTIONS";
-  set.headers["access-control-allow-headers"] = "Content-Type, Authorization";
-});
-
 // API 路由
-
-// ─── Better Auth Handler ──────────────────────────────────────────────────────
-// 所有 /api/auth/* 的請求（sign-up, sign-in, get-session, sign-out 等）
-// 全部交給 Better Auth 處理。
-// Elysia 1.4.x 中，明確的 get()/post() 路由優先順序高於 get("*") SPA fallback，
-// 因此必須分別定義 GET 和 POST，確保路由在 SPA wildcard 之前被捕捉。
-app.get("/api/auth/*", ({ request }) => auth.handler(request));
-app.post("/api/auth/*", ({ request }) => auth.handler(request));
 
 // ─── Sign-out Proxy ───────────────────────────────────────────────────────────
 // Better Auth 的 /api/auth/sign-out 有 CSRF origin 驗證（比對 trustedOrigins）。
@@ -269,13 +262,8 @@ app.get(
 // 取得使用者目前進行中的訂單
 app.get(
   "/api/orders/current",
-  async ({ request, set }) => {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
+  async ({ request }) => {
+    const user = await requireUser(request);
     const currentOrder = store.getCurrentOrderByUserId(user.id);
     return { data: currentOrder ? toOrderResponse(currentOrder) : null };
   },
@@ -296,13 +284,8 @@ app.get(
 // 取得使用者歷史訂單
 app.get(
   "/api/orders/history",
-  async ({ request, set }) => {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
+  async ({ request }) => {
+    const user = await requireUser(request);
     return {
       data: store.getOrderHistoryByUserId(user.id).map(toOrderResponse),
     };
@@ -324,12 +307,7 @@ app.get(
 app.post(
   "/api/orders",
   async ({ request, set }) => {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
+    const user = await requireUser(request);
     const existingOrder = store.getCurrentOrderByUserId(user.id);
     if (existingOrder) {
       return { data: toOrderResponse(existingOrder) };
@@ -358,12 +336,7 @@ app.post(
 app.get(
   "/api/orders/:id",
   async ({ params, request, set }) => {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
+    const user = await requireUser(request);
     const orderId = parseInt(params.id, 10);
     const order = store.getOrderById(orderId);
 
@@ -400,12 +373,7 @@ app.get(
 app.patch(
   "/api/orders/:id",
   async ({ params, body, request, set }) => {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
+    const user = await requireUser(request);
     const orderId = parseInt(params.id);
     const result = await store.updateOrderItem(orderId, {
       userId: user.id,
@@ -463,12 +431,7 @@ app.patch(
 app.post(
   "/api/orders/:id/submit",
   async ({ params, request, set }) => {
-    const user = await getCurrentUser(request);
-    if (!user) {
-      set.status = 401;
-      return { error: "Unauthorized" };
-    }
-
+    const user = await requireUser(request);
     const orderId = parseInt(params.id, 10);
     const result = await store.submitOrder(orderId, { userId: user.id });
 
@@ -529,37 +492,6 @@ app.get("/health", () => ({ status: "ok" }), {
     200: healthResponseSchema,
   },
 });
-
-// SPA fallback，只有在前端 build 產物存在時才提供靜態頁面。
-if (hasPublicAssets) {
-  app.get(
-    "*",
-    async ({ request }) => {
-      const pathname = new URL(request.url).pathname;
-
-      // API 路徑不走 SPA fallback（包含 Better Auth 的 /api/auth/*）
-      if (pathname.startsWith("/api/")) {
-        return new Response(JSON.stringify({ error: "Not found" }), {
-          status: 404,
-          headers: { "Content-Type": "application/json" },
-        });
-      }
-
-      const staticFile = Bun.file(`./public${pathname}`);
-
-      if (pathname !== "/" && (await staticFile.exists())) {
-        return staticFile;
-      }
-
-      return Bun.file("./public/index.html");
-    },
-    {
-      detail: {
-        hide: true,
-      },
-    },
-  );
-}
 
 // 全局錯誤處理
 app.onError(({ error, set, code }) => {
