@@ -1,0 +1,150 @@
+{
+  "folders": [
+    {
+      "path": ".",
+    },
+    {
+      "path": "../00_demo01-docs",
+    },
+    {
+      "path": "../00_demo01-main",
+    },
+    {
+      "path": "../00_demo01-v8-clean-drizzle-neon-v2",
+    },
+    {
+      "path": "../00_demo01-v9-clean-better-auth-v3",
+    },
+    {
+      "path": "../00_demo01-v10-clean-rbac-v1",
+    },
+  ],
+  "settings": {
+    "chat.tools.terminal.autoApprove": {
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && git ls-tree -d feat/v8-drizzle-neon \\| grep 00_teaching \\|\\| echo \"Not found\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && git ls-tree -d feat/v9-better-auth \\| grep 00_teaching \\|\\| echo \"Not found\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && git ls-tree -d v7-baseline \\| grep 00_teaching \\|\\| echo \"Not found\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01-docs && git ls-files \\| grep -v '\\^00_teaching/' \\| while read -r line; do git rm -rf \"\\$line\"; done$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^BASE=/root/00_nsPrj/01_backEnd/06_elysia/00_demo01\ngit -C \\$BASE worktree add /tmp/wt-v8-drizzle-neon feat/v8-drizzle-neon\ncd /tmp/wt-v8-drizzle-neon && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ngit -C \\$BASE worktree remove /tmp/wt-v8-drizzle-neon$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^BASE=/root/00_nsPrj/01_backEnd/06_elysia/00_demo01\n# Clean up any existing worktrees first to avoid conflicts\ngit -C \\$BASE worktree remove /tmp/wt-v7-clean-auth-store \\|\\| true\ngit -C \\$BASE worktree remove /tmp/wt-v8-drizzle-neon \\|\\| true\ngit -C \\$BASE worktree remove /tmp/wt-v9-better-auth \\|\\| true\ngit -C \\$BASE worktree remove /tmp/wt-v7-baseline \\|\\| true\n\n# 1\\. feat/v7-clean-auth-store\ngit -C \\$BASE worktree add /tmp/wt-v7-clean-auth-store feat/v7-clean-auth-store\ncd /tmp/wt-v7-clean-auth-store && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ngit -C \\$BASE worktree remove /tmp/wt-v7-clean-auth-store\n\n# 2\\. feat/v8-drizzle-neon\ngit -C \\$BASE worktree add /tmp/wt-v8-drizzle-neon feat/v8-drizzle-neon\ncd /tmp/wt-v8-drizzle-neon && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ngit -C \\$BASE worktree remove /tmp/wt-v8-drizzle-neon\n\n# 3\\. feat/v9-better-auth\ngit -C \\$BASE worktree add /tmp/wt-v9-better-auth feat/v9-better-auth\ncd /tmp/wt-v9-better-auth && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ngit -C \\$BASE worktree remove /tmp/wt-v9-better-auth\n\n# 4\\. v7-baseline\ngit -C \\$BASE worktree add /tmp/wt-v7-baseline v7-baseline\ncd /tmp/wt-v7-baseline && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ngit -C \\$BASE worktree remove /tmp/wt-v7-baseline$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^BASE=\"/root/00_nsPrj/01_backEnd/06_elysia/00_demo01\"\ngit -C \"\\$BASE\" worktree remove /tmp/wt-v7-clean-auth-store --force\ngit -C \"\\$BASE\" worktree remove /tmp/wt-v8-drizzle-neon --force\ngit -C \"\\$BASE\" worktree remove /tmp/wt-v9-better-auth --force\ngit -C \"\\$BASE\" worktree remove /tmp/wt-v7-baseline --force\ngit -C \"\\$BASE\" worktree prune$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^BASE=\"/root/00_nsPrj/01_backEnd/06_elysia/00_demo01\"\n# 1\ngit -C \"\\$BASE\" worktree add /tmp/wt-v7-clean-auth-store feat/v7-clean-auth-store\ncd /tmp/wt-v7-clean-auth-store && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ncd / && git -C \"\\$BASE\" worktree remove /tmp/wt-v7-clean-auth-store\n# 2\ngit -C \"\\$BASE\" worktree add /tmp/wt-v8-drizzle-neon feat/v8-drizzle-neon\ncd /tmp/wt-v8-drizzle-neon && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ncd / && git -C \"\\$BASE\" worktree remove /tmp/wt-v8-drizzle-neon\n# 3\ngit -C \"\\$BASE\" worktree add /tmp/wt-v9-better-auth feat/v9-better-auth\ncd /tmp/wt-v9-better-auth && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ncd / && git -C \"\\$BASE\" worktree remove /tmp/wt-v9-better-auth\n# 4\ngit -C \"\\$BASE\" worktree add /tmp/wt-v7-baseline v7-baseline\ncd /tmp/wt-v7-baseline && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\ncd / && git -C \"\\$BASE\" worktree remove /tmp/wt-v7-baseline$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^git -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree list$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^BASE=/root/00_nsPrj/01_backEnd/06_elysia/00_demo01\ngit -C \\$BASE worktree add /tmp/wt1 feat/v7-clean-auth-store\ncd /tmp/wt1\ngit rm -r 00_teaching\ngit commit -m \"chore: move 00_teaching to docs-hub branch\"\ncd /\ngit -C \\$BASE worktree remove /tmp/wt1$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^git -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree add /tmp/wt2 feat/v8-drizzle-neon && \\\\\n\\(cd /tmp/wt2 && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\\) && \\\\\ngit -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree remove /tmp/wt2$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^git -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree add /tmp/wt3 feat/v9-better-auth && \\\\\n\\(cd /tmp/wt3 && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\\) && \\\\\ngit -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree remove /tmp/wt3$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^git -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree add /tmp/wt4 v7-baseline && \\\\\n\\(cd /tmp/wt4 && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"\\) && \\\\\ngit -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 worktree remove /tmp/wt4$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && \\\\\ngit ls-tree -d feat/v7-clean-auth-store \\| grep 00_teaching \\|\\| echo \"v7-clean-auth-store: 00_teaching NOT found\" && \\\\\ngit ls-tree -d feat/v8-drizzle-neon \\| grep 00_teaching \\|\\| echo \"v8-drizzle-neon: 00_teaching NOT found\" && \\\\\ngit ls-tree -d feat/v9-better-auth \\| grep 00_teaching \\|\\| echo \"v9-better-auth: 00_teaching NOT found\" && \\\\\ngit ls-tree -d v7-baseline \\| grep 00_teaching \\|\\| echo \"v7-baseline: 00_teaching NOT found\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^git worktree add /tmp/wt-v7bl refs/heads/v7-baseline$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /tmp/wt-v7bl && ls -la \\| head && git rm -r 00_teaching && git commit -m \"chore: move 00_teaching to docs-hub branch\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^git -C /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 ls-tree -r refs/heads/v7-baseline \\| grep 00_teaching$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^bun run db:migrate --verbose$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^export DATABASE_URL=postgresql://neondb_owner:npg_kxE2nTCWcv6A@ep-old-night-aojlczr3-pooler\\.c-2\\.ap-southeast-1\\.aws\\.neon\\.tech/neondb\\?sslmode=require && export DATABASE_URL_MIGRATION=postgresql://neondb_owner:npg_kxE2nTCWcv6A@ep-old-night-aojlczr3\\.c-2\\.ap-southeast-1\\.aws\\.neon\\.tech/neondb\\?sslmode=require && bun run db:migrate$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^bun run db:migrate --help$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && cp backend\\.ts backend\\.v9\\.pre-better-auth\\.ts && echo \"備份完成\" && ls -lh backend\\*\\.ts$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && git add backend\\.v9\\.pre-better-auth\\.ts && git commit -m \"chore: backup backend\\.ts before Better Auth integration \\(Phase 0\\)\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && bun add better-auth 2>&1 \\| tail -5$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01/frontend && bun add better-auth 2>&1 \\| tail -5$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^openssl rand -hex 32$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^bun -e \"console\\.log\\(require\\('crypto'\\)\\.randomBytes\\(32\\)\\.toString\\('hex'\\)\\)\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && bun run --bun node_modules/\\.bin/better-auth generate --config auth/better-auth\\.ts 2>&1 \\| head -30 \\|\\| echo \"CLI_FAILED\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && find node_modules -name \"better-auth\" -type f 2>/dev/null \\| head -5 && bunx better-auth generate --help 2>&1 \\| head -10$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && git add 00_demo01\\.code-workspace && git commit -m \"chore: 新增 v8 worktree 至 workspace 設定\"$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01 && git push origin feat/v9-clean-better-auth-v2$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+      "/^cd /root/00_nsPrj/01_backEnd/06_elysia/00_demo01-v9-clean-better-auth-v3 && timeout 3 bun run start 2>&1 \\|\\| true$/": {
+        "approve": true,
+        "matchCommandLine": true,
+      },
+    },
+  },
+}
